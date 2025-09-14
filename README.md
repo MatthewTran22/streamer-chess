@@ -1,66 +1,77 @@
-# Mentra Live Streamer App
+# MentraOS TTS App
 
-### Install MentraOS on your phone
+A MentraOS application that tells you what move to play based on the chess board position.
 
-MentraOS install links: [mentra.glass/install](https://mentra.glass/install)
+## Features
 
-### (Easiest way to get started) Set up ngrok
+- **Button Press Detection**: Listens for hardware button presses on the MentraOS glasses
+- **Backend API Integration**: Calls FastAPI backend `/sendMsg` endpoint when button is pressed
+- **Text-to-Speech (TTS)**: Uses MentraOS SDK's `session.audio.speak()` to play backend response audio
+- **Visual Feedback**: Shows loading and confirmation messages during API calls
+- **Error Handling**: Falls back to text display if backend or TTS fails
+- **Speaker Capabilities**: Checks and logs available speaker information
+- **Voice Activity Monitoring**: Displays voice activity status on the dashboard
 
-1. `brew install ngrok`
+## Setup
 
-2. Make an ngrok account
+1. **Install Dependencies**:
+   ```bash
+   bun install
+   ```
 
-3. [Use ngrok to make a static address/URL](https://dashboard.ngrok.com/)
+2. **Environment Configuration**:
+   Create a `.env` file in the root directory:
+   ```env
+   PORT=3000
+   PACKAGE_NAME=com.example.ttsapp
+   MENTRAOS_API_KEY=your_api_key_from_console
+   BACKEND_URL=your_url
+   ```
 
-### Register your APP with MentraOS
+3. **Run the App**:
+   ```bash
+   # Development mode with hot reload
+   bun run dev
+   
+   # Or production mode
+   bun run start
+   ```
 
-<img width="181" alt="image" src="https://github.com/user-attachments/assets/36192c2b-e1ba-423b-90de-47ff8cd91318" />
+## Usage
 
-1. Navigate to [console.mentra.glass](https://console.mentra.glass/)
+1. Connect your MentraOS glasses
+2. Launch the app
+3. Start the backend server (see backend/README.md for instructions)
+4. Press any hardware button on the glasses
+5. The app will call the backend API and speak the response through the glasses speakers
 
-2. Click "Sign In", and log in with the same account you're using for MentraOS
+## Technical Notes
 
-3. Click "Create App"
+- **Backend Integration**: Makes HTTP POST requests to `/sendMsg` endpoint with user_id and message
+- **TTS Implementation**: Uses MentraOS SDK's `session.audio.speak()` method for actual text-to-speech functionality
+- **Error Handling**: Includes fallback to text display if backend API or TTS fails
+- **Button Events**: The app listens for `onButtonPress` events and responds to any button press regardless of button ID or press type
+- **Speaker Detection**: The app checks for available speakers and logs their capabilities (count, private audio support)
+- **Async Operations**: Button press handler is async to properly handle API calls and TTS operations
 
-4. Set a unique package name like `com.yourName.yourAppName`
+## Dependencies
 
-5. For "Public URL", enter your Ngrok's static URL or the public URL of your server
+- `@mentra/sdk`: MentraOS SDK for smart glasses development
+- `typescript`: TypeScript support
+- `@types/node`: Node.js type definitions
 
-6. After the app is created, you will be given an API key. Copy this key and use it in the `.env` file below.
+## Architecture
 
-7. You can now add settings and tools to your app via the MentraOS Developer Console.  Let's upload this example's `app_config.json` file by clicking the "Import app_config.json" button under **Configuration Management**:
+The app extends the `AppServer` class and implements the `onSession` method to:
+1. Set up event listeners for button presses
+2. Check device capabilities
+3. Display welcome message
+4. Handle cleanup when the session ends
 
-    ![Import app config](https://github.com/user-attachments/assets/14736150-7f02-43db-8b29-bbe918a4086b)
+## Future Enhancements
 
-### Get your APP running!
-
-1. [Install bun](https://bun.sh/docs/installation)
-
-2. Create a new repo from this template using the `Use this template` dropdown in the upper right or the following command: `gh repo create --template Mentra-Community/MentraOS-Extended-Example-App`
-
-    ![Create repo from template](https://github.com/user-attachments/assets/c10e14e8-2dc5-4dfa-adac-dd334c1b73a5)
-
-3. Clone your new repo locally: `git clone <your-repo-url>`
-
-4. cd into your repo, then type `bun install`
-
-5. Set up your environment variables:
-   * Create a `.env` file in the root directory by copying the example: `cp .env.example .env`
-   * Edit the `.env` file with your app details:
-     ```
-     PORT=3000
-     PACKAGE_NAME=com.yourName.yourAppName
-     MENTRAOS_API_KEY=your_api_key_from_console
-     ```
-   * Make sure the `PACKAGE_NAME` matches what you registered in the MentraOS Console
-   * Get your `MENTRAOS_API_KEY` from the MentraOS Developer Console
-
-6. Run your app with `bun run dev`
-
-7. To expose your app to the internet (and thus MentraOS) with ngrok, run: `ngrok http --url=<YOUR_NGROK_URL_HERE> 3000`
-    * `3000` is the port. It must match what is in the app config. For example, if you entered `port: 8080`, use `8080` for ngrok instead.
-
-
-### Next Steps
-
-Check out the full documentation at [docs.mentra.glass](https://docs.mentra.glass/core-concepts)
+- Add support for different button types and press patterns
+- Include voice command integration
+- Add configuration options for custom messages
+- Implement advanced TTS settings (voice selection, speed, pitch)
+- Add multiple language support

@@ -1,183 +1,136 @@
-import { ToolCall, AppServer, AppSession, StreamType } from '@mentra/sdk';
-import path from 'path';
-import { setupExpressRoutes } from './webview';
-import { handleToolCall } from './tools';
-import { broadcastStreamStatus, formatStreamStatus } from './webview';
+import { AppServer, AppSession } from '@mentra/sdk';
 
-const PACKAGE_NAME = process.env.PACKAGE_NAME ?? (() => { throw new Error('PACKAGE_NAME is not set in .env file'); })();
+const PACKAGE_NAME = process.env.PACKAGE_NAME ?? 'com.example.ttsapp';
 const MENTRAOS_API_KEY = process.env.MENTRAOS_API_KEY ?? (() => { throw new Error('MENTRAOS_API_KEY is not set in .env file'); })();
 const PORT = parseInt(process.env.PORT || '3000');
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
-class StreamerApp extends AppServer {
+/**
+ * TTS App with backend integration
+ * Extends AppServer to provide button press handling and backend API calls
+ */
+class TTSApp extends AppServer {
   constructor() {
     super({
       packageName: PACKAGE_NAME,
       apiKey: MENTRAOS_API_KEY,
       port: PORT,
-      publicDir: path.join(__dirname, '../public'),
     });
-
-    // Set up Express routes
-    setupExpressRoutes(this);
   }
 
-  /** Map to store active user sessions */
-  private userSessionsMap = new Map<string, AppSession>();
-
   /**
-   * Handles tool calls from the MentraOS system
-   * @param toolCall - The tool call request
-   * @returns Promise resolving to the tool call response or undefined
+   * Call the backend API to send a message
    */
-  protected async onToolCall(toolCall: ToolCall): Promise<string | undefined> {
-    return handleToolCall(toolCall, toolCall.userId, this.userSessionsMap.get(toolCall.userId));
+  private async callBackendAPI(userId: string, message: string): Promise<string> {
+    console.log(`🔗 Calling backend API with message: "${message}" for user: ${userId}`);
+    try {
+      const response = await fetch(`${BACKEND_URL}/sendMsg`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: message,
+          user_id: userId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log(`📨 Backend API response:`, data);
+      return data.message || 'No response from backend';
+    } catch (error) {
+      console.error('Backend API call failed:', error);
+      throw error;
+    }
   }
 
   /**
-   * Handles new user sessions
-   * Sets up event listeners and displays welcome message
-   * @param session - The app session instance
-   * @param sessionId - Unique session identifier
-   * @param userId - User identifier
+   * Handle new session creation and button press events
    */
   protected async onSession(session: AppSession, sessionId: string, userId: string): Promise<void> {
-    // Track the session for this user
-    this.userSessionsMap.set(userId, session);
+    console.log(`🎯 SESSION STARTED: ${sessionId} for user ${userId}`);
+    this.logger.info(`🔊 TTS Session ${sessionId} started for ${userId}`);
 
-    session.subscribe(StreamType.MANAGED_STREAM_STATUS);
-    session.subscribe(StreamType.RTMP_STREAM_STATUS);
-
-    // Check for existing streams and update UI accordingly
-    try {
-      const streamInfo = await session.camera.checkExistingStream();
-
-      if (streamInfo.hasActiveStream && streamInfo.streamInfo) {
-        console.log('Found existing stream:', streamInfo.streamInfo.type);
-
-        if (streamInfo.streamInfo.type === 'managed') {
-          // Managed stream is active - reconnect to it
-          console.log('Reconnecting to existing managed stream...');
-          
-          // The stream is already active, just update our local state
-          session.streamType = 'managed';
-          session.streamStatus = streamInfo.streamInfo.status || 'active';
-          session.hlsUrl = streamInfo.streamInfo.hlsUrl || null;
-          session.dashUrl = streamInfo.streamInfo.dashUrl || null;
-          session.streamId = streamInfo.streamInfo.streamId || null;
-          session.directRtmpUrl = null;
-          session.error = null;
-          session.previewUrl = streamInfo.streamInfo.previewUrl || null;
-
-          // Broadcast the existing stream info
-          broadcastStreamStatus(userId, formatStreamStatus(session));
-
-          // Show notification in glasses
-          session.layouts.showTextWall(`📺 Stream already active!\n\nHLS: ${streamInfo.streamInfo.hlsUrl || 'Generating...'}`);
-        } else {
-          // Unmanaged stream is active
-          session.streamType = 'unmanaged';
-          session.streamStatus = streamInfo.streamInfo.status || 'active';
-          session.hlsUrl = null;
-          session.dashUrl = null;
-          session.streamId = streamInfo.streamInfo.streamId || null;
-          session.directRtmpUrl = streamInfo.streamInfo.rtmpUrl || null;
-          session.error = null;
-
-          // Broadcast the existing stream info
-          broadcastStreamStatus(userId, formatStreamStatus(session));
-
-          // Show notification in glasses
-          session.layouts.showTextWall(`⚠️ Another app is streaming to:\n${streamInfo.streamInfo.rtmpUrl || 'Unknown URL'}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error checking existing stream:', error);
-      // Continue with normal setup even if check fails
+    // Check speaker capabilities
+    if (session.capabilities?.hasSpeaker && session.capabilities?.speaker) {
+      const speaker = session.capabilities.speaker;
+      console.log(`🔊 Speaker capabilities: ${speaker.count || 1} speakers, Private: ${speaker.isPrivate || false}`);
+      this.logger.info(`Speakers: ${speaker.count || 1}, Private: ${speaker.isPrivate || false}`);
     }
 
-    const statusUnsubscribe = session.camera.onManagedStreamStatus((data) => {
-      console.log(data);
-      session.streamType = 'managed';
-      session.streamStatus = data.status;
-      session.hlsUrl = data.hlsUrl ?? null;
-      session.dashUrl = data.dashUrl ?? null;
-      session.directRtmpUrl = null;
-      session.streamId = data.streamId ?? null;
-      session.error = null;
-      session.previewUrl = data.previewUrl ?? null;
-      session.thumbnailUrl = data.thumbnailUrl ?? null;
-      // Broadcast updated status to the user's SSE clients
-      broadcastStreamStatus(userId, formatStreamStatus(session));
+    // Show welcome message
+    console.log(`📱 Showing welcome message - TTS App Ready!`);
+    session.layouts.showTextWall(`🔊 TTS App Ready!\n📡 Backend: ${BACKEND_URL}\nPress any button to call backend`, {
+      durationMs: 5000
     });
+    console.log(`✅ Session setup complete - waiting for button presses`);
 
-    const rtmpStatusUnsubscribe = session.camera.onStreamStatus((data) => {
-      console.log(data);
-      session.streamType = 'unmanaged';
-      session.streamStatus = data.status;
-      session.hlsUrl = null;
-      session.dashUrl = null;
-      session.streamId = data.streamId ?? null;
-      session.mangedRtmpRestreamUrls = null;
-      session.error = data.errorDetails ?? null;
-      // Broadcast updated status to the user's SSE clients
-      broadcastStreamStatus(userId, formatStreamStatus(session));
-    });
+    // Handle button press events - following the reference implementation pattern
+    session.events.onButtonPress(async (button) => {
+      console.log(`🔘 BUTTON PRESSED: ${button.buttonId} (${button.pressType})`);
+      this.logger.info(`Button pressed: ${button.buttonId}, type: ${button.pressType}`);
+      
+      // Show loading message
+      session.layouts.showTextWall('📡 Calling backend...', {
+        durationMs: 1000
+      });
 
-    // Glasses battery level updates (if available)
-    const batteryUnsubscribe = session.events?.onGlassesBattery?.((data: any) => {
       try {
-        const pct = typeof data?.percent === 'number' ? data.percent : (typeof data === 'number' ? data : null);
-        session.glassesBatteryPercent = pct ?? null;
-      } catch {
-        session.glassesBatteryPercent = null;
-      }
-      broadcastStreamStatus(userId, formatStreamStatus(session));
-    }) ?? (() => {});
-
-    // Broadcast on disconnect and cleanup the mapping
-    const disconnectedUnsubscribe = session.events.onDisconnected((info: any) => {
-      try {
-        // Only broadcast a disconnected state if the SDK marks it as permanent
-        if (info && typeof info === 'object' && info.permanent === true) {
-          this.userSessionsMap.delete(userId);
-          broadcastStreamStatus(userId, formatStreamStatus(undefined));
+        console.log(`🚀 Starting backend API call for button press`);
+        // Call backend API to get message
+        const backendMessage = await this.callBackendAPI(userId, "Button pressed!");
+        console.log(`✅ Backend response received: ${backendMessage}`);
+        this.logger.info(`Backend response: ${backendMessage}`);
+        
+        // Use TTS to speak the backend response
+        console.log(`🎤 Starting TTS for message: "${backendMessage}"`);
+        try {
+          const ttsResult = await session.audio.speak(backendMessage);
+          
+          if (ttsResult.success) {
+            console.log(`✅ TTS speech synthesis successful`);
+            this.logger.info("TTS speech synthesis successful");
+            // Also show text for visual confirmation
+            session.layouts.showTextWall(`🔊 Speaking: "${backendMessage}"`, {
+              durationMs: 2000
+            });
+          } else {
+            console.log(`❌ TTS failed: ${ttsResult.error}`);
+            this.logger.error(`❌ TTS failed: ${ttsResult.error}`);
+            // Fallback to text display if TTS fails
+            session.layouts.showTextWall(`${backendMessage} (TTS failed)`, {
+              durationMs: 3000
+            });
+          }
+        } catch (ttsError) {
+          console.error(`💥 TTS exception: ${ttsError}`);
+          this.logger.error(`TTS exception: ${ttsError}`);
+          // Fallback to text display if TTS throws an error
+          session.layouts.showTextWall(`${backendMessage} (TTS error)`, {
+            durationMs: 3000
+          });
         }
-        // Otherwise, allow auto-reconnect without UI flicker
-      } catch {
-        // No-op
+      } catch (error) {
+        console.error(`💥 Exception during backend call: ${error}`);
+        this.logger.error(`Exception during backend call: ${error}`);
+        // Fallback to error message
+        session.layouts.showTextWall('❌ Backend connection failed', {
+          durationMs: 3000
+        });
       }
     });
-
-    this.addCleanupHandler(() => {
-      statusUnsubscribe();
-      rtmpStatusUnsubscribe();
-      batteryUnsubscribe();
-      disconnectedUnsubscribe();
-    });
-
-    // Send an initial status snapshot
-    broadcastStreamStatus(userId, formatStreamStatus(session));
-
-    // tell the user that they can start streaming via the webview (speak)
   }
 
-  /**
-   * Handles stop requests to ensure SSE clients are notified of disconnection
-   */
   protected async onStop(sessionId: string, userId: string, reason: string): Promise<void> {
-    try {
-      // Ensure base cleanup (disconnects and clears SDK's active session maps)
-      await super.onStop(sessionId, userId, reason);
-      // Remove any cached session for this user
-      this.userSessionsMap.delete(userId);
-    } finally {
-      // Broadcast a no-session status so clients update UI promptly
-      broadcastStreamStatus(userId, formatStreamStatus(undefined));
-    }
+    this.logger.info(`Session stopped for user ${userId}, reason: ${reason}`);
   }
 }
 
 // Start the server
-const app = new StreamerApp();
+const app = new TTSApp();
 
 app.start().catch(console.error);

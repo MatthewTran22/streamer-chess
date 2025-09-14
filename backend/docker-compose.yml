@@ -1,0 +1,57 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamer-chess-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - ENV=development
+    volumes:
+      # Mount source code for development (hot reload)
+      - .:/app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - streamer-chess-network
+
+  # Optional: Add a database service for future use
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: streamer-chess-db
+  #   environment:
+  #     POSTGRES_DB: streamer_chess
+  #     POSTGRES_USER: postgres
+  #     POSTGRES_PASSWORD: password
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - streamer-chess-network
+
+  # Optional: Add Redis for caching
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: streamer-chess-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - streamer-chess-network
+
+networks:
+  streamer-chess-network:
+    driver: bridge
+
+# volumes:
+#   postgres_data:
+#   redis_data:
