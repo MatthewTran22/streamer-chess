@@ -9,9 +9,11 @@
   },
   "author": "",
   "license": "MIT",
-  "description": "MentraOS TTS app that calls backend API and speaks the response when button is pressed",
+  "description": "MentraOS TTS app that connects to backend SSE stream and speaks chess moves automatically every 5 seconds",
   "dependencies": {
-    "@mentra/sdk": "^2.1.21"
+    "@mentra/sdk": "^2.1.21",
+    "@types/eventsource": "^3.0.0",
+    "eventsource": "^4.0.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

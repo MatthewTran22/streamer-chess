@@ -1,9 +1,12 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import uvicorn
 import os
+import asyncio
+import json
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -57,6 +60,36 @@ async def send_message(request: MessageRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Message processing failed: {str(e)}")
 
+# Server-Sent Events endpoint
+@app.get("/events")
+async def stream_events():
+    """
+    Stream chess moves via Server-Sent Events
+    Sends "Rook to B1" every 5 seconds
+    """
+    async def event_generator():
+        while True:
+            # Send the chess move
+            data = {
+                "message": "Rook to B1",
+                "timestamp": asyncio.get_event_loop().time()
+            }
+            yield f"data: {json.dumps(data)}\n\n"
+            
+            # Wait 5 seconds before sending the next event
+            await asyncio.sleep(5)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
 # Root endpoint
 @app.get("/")
 async def root():
@@ -66,7 +99,8 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "health": "/health",
-            "sendMsg": "/sendMsg"
+            "sendMsg": "/sendMsg",
+            "events": "/events (SSE - streams chess moves every 5 seconds)"
         }
     }
 

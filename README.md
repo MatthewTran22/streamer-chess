@@ -1,16 +1,16 @@
-# MentraOS TTS App
+# MentraOS Chess TTS App
 
-A MentraOS application that tells you what move to play based on the chess board position.
+A MentraOS application that automatically announces chess moves via Server-Sent Events (SSE) and Text-to-Speech.
 
 ## Features
 
-- **Button Press Detection**: Listens for hardware button presses on the MentraOS glasses
-- **Backend API Integration**: Calls FastAPI backend `/sendMsg` endpoint when button is pressed
-- **Text-to-Speech (TTS)**: Uses MentraOS SDK's `session.audio.speak()` to play backend response audio
-- **Visual Feedback**: Shows loading and confirmation messages during API calls
+- **Server-Sent Events (SSE)**: Connects to backend SSE stream for real-time chess move updates
+- **Automatic TTS**: Announces chess moves every 5 seconds through the glasses speakers
+- **Text-to-Speech (TTS)**: Uses MentraOS SDK's `session.audio.speak()` for natural voice output
+- **Visual Feedback**: Shows connection status and incoming chess moves on screen
 - **Error Handling**: Falls back to text display if backend or TTS fails
 - **Speaker Capabilities**: Checks and logs available speaker information
-- **Voice Activity Monitoring**: Displays voice activity status on the dashboard
+- **Connection Management**: Automatic reconnection and proper cleanup
 
 ## Setup
 
@@ -42,21 +42,24 @@ A MentraOS application that tells you what move to play based on the chess board
 1. Connect your MentraOS glasses
 2. Launch the app
 3. Start the backend server (see backend/README.md for instructions)
-4. Press any hardware button on the glasses
-5. The app will call the backend API and speak the response through the glasses speakers
+4. The app automatically connects to the SSE stream
+5. Chess moves ("Rook to B1") are announced every 5 seconds via TTS
+6. Press any hardware button to check connection status
 
 ## Technical Notes
 
-- **Backend Integration**: Makes HTTP POST requests to `/sendMsg` endpoint with user_id and message
+- **SSE Integration**: Connects to backend `/events` endpoint using EventSource for real-time streaming
 - **TTS Implementation**: Uses MentraOS SDK's `session.audio.speak()` method for actual text-to-speech functionality
-- **Error Handling**: Includes fallback to text display if backend API or TTS fails
-- **Button Events**: The app listens for `onButtonPress` events and responds to any button press regardless of button ID or press type
+- **Error Handling**: Includes fallback to text display if SSE connection or TTS fails
+- **Connection Management**: Automatic reconnection attempts and proper cleanup on session end
 - **Speaker Detection**: The app checks for available speakers and logs their capabilities (count, private audio support)
-- **Async Operations**: Button press handler is async to properly handle API calls and TTS operations
+- **Async Operations**: SSE message handling and TTS operations are properly async
 
 ## Dependencies
 
 - `@mentra/sdk`: MentraOS SDK for smart glasses development
+- `eventsource`: Server-Sent Events client for Node.js/Bun
+- `@types/eventsource`: TypeScript definitions for EventSource
 - `typescript`: TypeScript support
 - `@types/node`: Node.js type definitions
 
