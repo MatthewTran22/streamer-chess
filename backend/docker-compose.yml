@@ -1,0 +1,34 @@
+services:
+  rtmp-server:
+    image: ossrs/srs:5
+    container_name: streamer-chess-rtmp-server
+    ports:
+      - "1935:1935"
+      - "8080:8080"
+    restart: unless-stopped
+    
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: streamer-chess-backend
+    depends_on:
+      - rtmp-server
+    environment:
+      - ENV=development
+      # FFmpeg listener configuration
+      - LISTEN_PORT=1936
+      - RTMP_APP_PATH=/s/in
+      # Forward to RTMP server container
+      - RTMP_FORWARD_URL=rtmp://rtmp-server:1935/live/streamKey
+      - FFMPEG_MODE=copy # copy|transcode|off
+      # Set your RTMP URL here or pass at runtime
+      # - RTMP_URL=rtmp://192.168.1.3:1935/s/streamKey
+    ports:
+      - "8000:8000"
+      - "1936:1936" # FFmpeg listener
+    volumes:
+      - .:/app
+    command: ["./start.sh"]
+

@@ -83,7 +83,7 @@ def validate_message_requirements() -> tuple[bool, str]:
     - etc.
     """
     # Check RTMP_URL environment variable
-    rtmp_url = os.getenv("RTMP_URL")
+    rtmp_url = os.getenv("RTMP_URL", "rtmp://rtmp-server:1935/live/streamKey")
     if not rtmp_url:
         return False, "No RTMP_URL environment variable set"
     
