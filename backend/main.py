@@ -39,14 +39,17 @@ class HealthResponse(BaseModel):
     status: str
     message: str
 
-def check_rtmp_stream_access(rtmp_url: str) -> tuple[bool, str]:
+def check_rtsp_stream_access(rtsp_url: str) -> tuple[bool, str]:
     """
-    Check if we can actually access the RTMP stream using OpenCV
+    Check if we can actually access the RTSP stream using OpenCV
     Returns (is_accessible: bool, error_message: str)
     """
     try:
-        # Create VideoCapture object with RTMP URL using FFmpeg backend
-        cap = cv2.VideoCapture(rtmp_url, cv2.CAP_FFMPEG)
+        # Force RTSP over TCP for stability with MediaMTX
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
+        
+        # Create VideoCapture object with RTSP URL using FFmpeg backend
+        cap = cv2.VideoCapture(rtsp_url, cv2.CAP_FFMPEG)
         
         if cap.isOpened():
             # Try to read one frame to verify stream is actually working
@@ -54,19 +57,19 @@ def check_rtmp_stream_access(rtmp_url: str) -> tuple[bool, str]:
             cap.release()  # Always release resources
             
             if ret and frame is not None:
-                print(f"✅ RTMP stream accessible: {rtmp_url}")
-                return True, "RTMP stream accessible"
+                print(f"✅ RTSP stream accessible: {rtsp_url}")
+                return True, "RTSP stream accessible via MediaMTX"
             else:
-                error_msg = f"RTMP stream opened but no frames received: {rtmp_url}"
+                error_msg = f"RTSP stream opened but no frames received: {rtsp_url}"
                 print(f"❌ {error_msg}")
                 return False, error_msg
         else:
-            error_msg = f"Could not open RTMP stream: {rtmp_url}"
+            error_msg = f"Could not open RTSP stream: {rtsp_url}"
             print(f"❌ {error_msg}")
             return False, error_msg
             
     except Exception as e:
-        error_msg = f"Error testing RTMP stream {rtmp_url}: {str(e)}"
+        error_msg = f"Error testing RTSP stream {rtsp_url}: {str(e)}"
         print(f"💥 {error_msg}")
         return False, error_msg
 
@@ -76,19 +79,19 @@ def validate_message_requirements() -> tuple[bool, str]:
     Returns (should_send: bool, reason: str)
     
     Add new requirements here as needed:
-    - RTMP stream accessibility
+    - RTSP stream accessibility via MediaMTX
     - Other stream parameters
     - API keys
     - Database connectivity
     - etc.
     """
-    # Check RTMP_URL environment variable
-    rtmp_url = os.getenv("RTMP_URL", "rtmp://rtmp-server:1935/live/streamKey")
-    if not rtmp_url:
-        return False, "No RTMP_URL environment variable set"
+    # Check MediaMTX RTSP URL environment variable
+    rtsp_url = os.getenv("MEDIAMTX_RTSP_URL", "rtsp://mediamtx:8554/live/stream1")
+    if not rtsp_url:
+        return False, "No MEDIAMTX_RTSP_URL environment variable set"
     
-    # Check RTMP stream accessibility
-    is_accessible, error_msg = check_rtmp_stream_access(rtmp_url)
+    # Check RTSP stream accessibility via MediaMTX
+    is_accessible, error_msg = check_rtsp_stream_access(rtsp_url)
     if not is_accessible:
         return False, error_msg
     
@@ -129,9 +132,9 @@ async def send_message(request: MessageRequest):
 async def stream_events():
     """
     Stream chess moves via Server-Sent Events
-    Sends "Rook to B1" every 5 seconds if RTMP_URL is set AND accessible
-    Tests actual RTMP stream connectivity using OpenCV VideoCapture
-    Otherwise logs "RTMP stream not accessible - Looks the same"
+    Sends "Rook to B1" every 5 seconds if MediaMTX RTSP stream is accessible
+    Tests actual RTSP stream connectivity using OpenCV VideoCapture
+    Otherwise logs "RTSP stream not accessible - Looks the same"
     """
     async def event_generator():
         while True:
@@ -174,7 +177,7 @@ async def root():
         "endpoints": {
             "health": "/health",
             "sendMsg": "/sendMsg",
-            "events": "/events (SSE - streams chess moves every 5 seconds if RTMP_URL is set)"
+            "events": "/events (SSE - streams chess moves every 5 seconds if MediaMTX RTSP stream is accessible)"
         }
     }
 

@@ -1,0 +1,66 @@
+# MediaMTX configuration file
+# This is optional - MediaMTX works fine with defaults
+# Uncomment and modify settings as needed
+
+# Global settings
+#logLevel: info
+#logDestinations: [stdout]
+#logFile: mediamtx.log
+
+# API settings
+#api: yes
+#apiAddress: :9997
+
+# Metrics settings  
+#metrics: yes
+#metricsAddress: :9998
+
+# RTMP settings
+rtmp: yes
+rtmpAddress: :1935
+#rtmpEncryption: "no"
+#rtmpServerKey: server.key
+#rtmpServerCert: server.crt
+
+# RTSP settings
+rtsp: yes
+rtspAddress: :8554
+#rtspEncryption: "no"
+#rtspServerKey: server.key
+#rtspServerCert: server.crt
+rtspTransports: [tcp, udp]  # Updated from deprecated 'protocols'
+
+# WebRTC settings
+webrtc: yes
+webrtcAddress: :8889
+webrtcICEServers2: []
+
+# Path settings - define your streams here
+# For local development, no authentication needed
+paths:
+  # Default catch-all path - allow all access
+  ~^.*$:
+    # No authentication for local development
+    
+  # Specific path for your chess stream
+  live/stream1:
+    # No authentication needed for local development
+    
+    # Optional: redirect/proxy settings
+    #source: rtsp://192.168.1.100:8554/stream
+    #sourceFingerprint: ""
+    #sourceOnDemand: no
+    #sourceOnDemandStartTimeout: 10s
+    #sourceOnDemandCloseAfter: 10s
+    
+    # Optional: run commands on events
+    #runOnInit: ""
+    #runOnInitRestart: no
+    #runOnDemand: ""
+    #runOnDemandRestart: no
+    #runOnDemandStartTimeout: 10s
+    #runOnDemandCloseAfter: 10s
+    #runOnPublish: ""
+    #runOnPublishRestart: no
+    #runOnRead: ""
+    #runOnReadRestart: no
