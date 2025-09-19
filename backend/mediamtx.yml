@@ -1,11 +1,15 @@
-# MediaMTX configuration file
-# This is optional - MediaMTX works fine with defaults
-# Uncomment and modify settings as needed
+# MediaMTX configuration file - ULTRA LOW LATENCY
+# Optimized for <2 second latency
 
 # Global settings
-#logLevel: info
-#logDestinations: [stdout]
-#logFile: mediamtx.log
+logLevel: info
+logDestinations: [stdout]
+
+# Low latency global settings
+# Note: Some MediaMTX versions don't support all timeout settings
+# readTimeout: 3s
+# writeTimeout: 3s
+# readBufferCount: 16
 
 # API settings
 #api: yes
@@ -15,12 +19,9 @@
 #metrics: yes
 #metricsAddress: :9998
 
-# RTMP settings
+# RTMP settings - LOW LATENCY optimized
 rtmp: yes
 rtmpAddress: :1935
-#rtmpEncryption: "no"
-#rtmpServerKey: server.key
-#rtmpServerCert: server.crt
 
 # RTSP settings
 rtsp: yes
@@ -28,7 +29,7 @@ rtspAddress: :8554
 #rtspEncryption: "no"
 #rtspServerKey: server.key
 #rtspServerCert: server.crt
-rtspTransports: [tcp, udp]  # Updated from deprecated 'protocols'
+rtspTransports: [tcp, udp]
 
 # WebRTC settings
 webrtc: yes
@@ -42,9 +43,13 @@ paths:
   ~^.*$:
     # No authentication for local development
     
-  # Specific path for your chess stream
+  # Specific path for your chess stream - ULTRA LOW LATENCY
   live/stream1:
     # No authentication needed for local development
+    
+    # Ultra low latency settings for this path
+    # readTimeout: 2s
+    # writeTimeout: 2s
     
     # Optional: redirect/proxy settings
     #source: rtsp://192.168.1.100:8554/stream

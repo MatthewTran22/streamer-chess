@@ -7,8 +7,7 @@ services:
       - "8554:8554"    # RTSP output
       - "8889:8889"    # WebRTC
       - "8890:8890/udp" # WebRTC
-    environment:
-      - MTX_PROTOCOLS=tcp,udp
+    # environment variables can go here if needed
     restart: unless-stopped
     # Optional: mount config file for custom settings
     volumes:

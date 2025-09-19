@@ -55,8 +55,13 @@ def main():
         print("   ffmpeg -re -stream_loop -1 -i input.mp4 -c:v libx264 -preset veryfast -tune zerolatency -g 30 -pix_fmt yuv420p -c:a aac -b:a 128k -ar 48000 -f flv rtmp://127.0.0.1:1935/live/stream1")
         sys.exit(1)
     
-    # Set buffer size for low latency
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    # ULTRA LOW LATENCY SETTINGS
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Minimal buffer
+    
+    # Additional latency reduction settings
+    cap.set(cv2.CAP_PROP_FPS, 30)
+    
+    print("🚀 Ultra low latency mode enabled - buffer flushing active")
     
     # Get stream info
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -84,7 +89,12 @@ def main():
     
     try:
         while True:
-            ret, frame = cap.read()
+            # BUFFER FLUSH TECHNIQUE - grab multiple frames to get the latest
+            # This prevents frame accumulation and reduces latency significantly
+            for _ in range(3):  # Flush 2-3 old frames
+                ret, frame = cap.read()
+                if not ret:
+                    break
             
             if not ret:
                 no_frame_count += 1
@@ -109,13 +119,8 @@ def main():
             no_frame_count = 0
             current_time = time.time()
             
-            # Check if enough time has passed since last display (frame rate control)
-            time_since_last_display = current_time - last_display_time
-            if time_since_last_display < frame_delay:
-                # Not time to display this frame yet, sleep for remaining time
-                sleep_time = frame_delay - time_since_last_display
-                time.sleep(sleep_time)
-                current_time = time.time()
+            # REMOVED: Frame rate limiting for ultra low latency
+            # We want to display frames as fast as possible, not artificially slow them down
             
             last_frame_time = current_time
             last_display_time = current_time
