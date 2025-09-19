@@ -10,6 +10,74 @@ import sys
 import argparse
 import time
 import os
+import numpy as np
+from pathlib import Path
+from ultralytics import YOLO
+
+def load_chess_model():
+    """Load the chess piece detection model"""
+    # Model is in the project root directory
+    model_path = Path(__file__).parent.parent / "best_transformed_detection.pt"
+    
+    if not model_path.exists():
+        print(f"⚠️  Chess model not found at {model_path}")
+        print("   Chess piece detection will be disabled")
+        return None
+    
+    try:
+        # Load YOLOv8 model using ultralytics
+        model = YOLO(str(model_path))
+        print(f"✅ Chess piece detection model loaded from {model_path}")
+        return model
+    except Exception as e:
+        print(f"❌ Failed to load chess model: {e}")
+        return None
+
+def detect_chess_pieces(model, frame):
+    """Detect chess pieces in the frame and draw bounding boxes"""
+    if model is None:
+        return frame
+    
+    try:
+        # Run YOLOv8 inference
+        results = model(frame, verbose=False)
+        
+        # Process results
+        for result in results:
+            boxes = result.boxes
+            if boxes is not None:
+                for box in boxes:
+                    # Get bounding box coordinates
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
+                    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+                    
+                    # Get confidence and class
+                    confidence = float(box.conf[0])
+                    class_id = int(box.cls[0])
+                    class_name = model.names[class_id]
+                    
+                    # Only show detections above confidence threshold
+                    if confidence > 0.3:
+                        # Draw bounding box
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        
+                        # Draw label with confidence
+                        label = f"{class_name}: {confidence:.2f}"
+                        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 2)[0]
+                        
+                        # Draw label background
+                        cv2.rectangle(frame, (x1, y1 - label_size[1] - 10), 
+                                    (x1 + label_size[0], y1), (0, 255, 0), -1)
+                        
+                        # Draw label text
+                        cv2.putText(frame, label, (x1, y1 - 5), 
+                                  cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+        
+        return frame
+        
+    except Exception as e:
+        print(f"⚠️  Chess detection error: {e}")
+        return frame
 
 def main():
     parser = argparse.ArgumentParser(description='OpenCV RTSP Stream Client')
@@ -25,11 +93,21 @@ def main():
     if args.tcp:
         os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp"
     
-    print("🎥 OpenCV RTSP Stream Client")
-    print("=" * 40)
+    print("🎥 OpenCV RTSP Stream Client with Chess Detection")
+    print("=" * 50)
     print(f"📡 Connecting to: {args.stream_url}")
     print(f"🔧 RTSP Transport: {'TCP' if args.tcp else 'UDP'}")
     print()
+    
+    # Load chess piece detection model
+    print("🧠 Loading chess piece detection model...")
+    chess_model = load_chess_model()
+    if chess_model is not None:
+        print("✅ Chess piece detection: ENABLED (always on)")
+    else:
+        print("❌ Chess piece detection: DISABLED (model not found)")
+    print()
+    
     print("🎮 Controls:")
     print("  - Press 'q' to quit")
     print("  - Press 'f' to toggle fullscreen")
@@ -86,6 +164,7 @@ def main():
     last_frame_time = time.time()
     no_frame_count = 0
     last_display_time = time.time()
+    chess_detection_enabled = chess_model is not None  # Always ON if model loaded successfully
     
     try:
         while True:
@@ -126,6 +205,10 @@ def main():
             last_display_time = current_time
             frame_count += 1
             
+            # Apply chess piece detection if enabled
+            if chess_detection_enabled:
+                frame = detect_chess_pieces(chess_model, frame)
+            
             # Add frame counter and timestamp overlay
             cv2.putText(frame, f"Stream Frame: {frame_count}", (10, 30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -136,6 +219,14 @@ def main():
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 0), 2)
             cv2.putText(frame, f"Target FPS: {1/frame_delay:.1f}", (10, 110), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 255), 2)
+            
+            # Add chess detection status - always show if available
+            if chess_model is not None:
+                cv2.putText(frame, "Chess Detection: ON", (10, 150), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            else:
+                cv2.putText(frame, "Chess Detection: UNAVAILABLE", (10, 150), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 2)
             
             # Display frame
             cv2.imshow(window_name, frame)
